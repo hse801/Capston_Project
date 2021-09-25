@@ -18,6 +18,7 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+import math
 
 
 def compute_color_for_id(label):
@@ -28,6 +29,29 @@ def compute_color_for_id(label):
 
     color = [int((p * (label ** 2 - label + 1)) % 255) for p in palette]
     return tuple(color)
+
+
+def dist_calculator(startX, startY, endX, endY, img_w, img_h):
+
+    box_height = endY - endX
+    x_1, y_1 = img_w / 2, 0.9 * img_h
+    x_2, y_2 = endX, endY - (box_height / 7)
+    x_3, y_3 = startX, endY - (box_height / 7)
+
+    angle_x1_x2 = math.degrees(math.atan2(x_1 - x_2, y_1 - y_2))
+    anggle_x1_x3 = math.degrees(math.atan2(x_1 - x_3, y_1 - y_3))
+
+    angle_right = 90 + angle_x1_x2
+    angle_left = 90 + anggle_x1_x3
+
+    total_angle = angle_left + angle_right
+
+    person_length = 800
+
+    distance = (person_length * (1.0 / total_angle) * 57) / 1000
+
+    return distance
+
 
 
 def detect(opt):
@@ -134,11 +158,13 @@ def detect(opt):
 
                 # pass detections to deepsort
                 outputs = deepsort.update(xywhs.cpu(), confs.cpu(), clss, im0)
-                
+
                 # draw boxes for visualization
                 if len(outputs) > 0:
-                    for j, (output, conf) in enumerate(zip(outputs, confs)): 
-                        
+                    for j, (output, conf) in enumerate(zip(outputs, confs)):
+
+                        dist = dist_calculator(startX=output[0], startY=output[1], endX=output[2], endY=output[3], img_w=480, img_h=640)
+                        print(f'dist = {dist}, left = {output[0]}, right = {output[2]}, top = {output[3]}, bottom = {output[1]}')
                         bboxes = output[0:4]
                         id = output[4]
                         cls = output[5]
@@ -149,15 +175,16 @@ def detect(opt):
                         plot_one_box(bboxes, im0, label=label, color=color, line_thickness=2)
 
                         if save_txt:
-                            # to MOT format
-                            bbox_left = output[0]
-                            bbox_top = output[1]
-                            bbox_w = output[2] - output[0]
-                            bbox_h = output[3] - output[1]
-                            # Write MOT compliant results to file
-                            with open(txt_path, 'a') as f:
-                               f.write(('%g ' * 10 + '\n') % (frame_idx, id, bbox_left,
-                                                           bbox_top, bbox_w, bbox_h, -1, -1, -1, -1))  # label format
+                            if id == 1:
+                                # to MOT format
+                                bbox_left = output[0]
+                                bbox_top = output[1]
+                                bbox_w = output[2] - output[0]
+                                bbox_h = output[3] - output[1]
+                                # Write MOT compliant results to file
+                                with open(txt_path, 'a') as f:
+                                   f.write(('%g ' * 12 + '\n') % (frame_idx, id, dist, bbox_left,
+                                                               bbox_top, bbox_w, bbox_h, -1, -1, -1, -1, -1))  # label format
 
             else:
                 deepsort.increment_ages()
