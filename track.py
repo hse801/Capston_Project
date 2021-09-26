@@ -1,6 +1,6 @@
 import sys
 sys.path.insert(0, './yolov5')
-test
+# test
 from yolov5.utils.google_utils import attempt_download
 from yolov5.models.experimental import attempt_load
 from yolov5.utils.datasets import LoadImages, LoadStreams
@@ -33,18 +33,27 @@ def compute_color_for_id(label):
 
 def dist_calculator(startX, startY, endX, endY, img_w, img_h):
 
-    box_height = endY - endX
+    box_height = endY - startY
     x_1, y_1 = img_w / 2, 0.9 * img_h
     x_2, y_2 = endX, endY - (box_height / 7)
     x_3, y_3 = startX, endY - (box_height / 7)
+    # x_1, y_1 = img_w / 2, 0.1 * img_h
+    # x_2, y_2 = endX, startY + (box_height / 7)
+    # x_3, y_3 = startX, startY + (box_height / 7)
 
     angle_x1_x2 = math.degrees(math.atan2(x_1 - x_2, y_1 - y_2))
-    anggle_x1_x3 = math.degrees(math.atan2(x_1 - x_3, y_1 - y_3))
+    angle_x1_x3 = math.degrees(math.atan2(x_1 - x_3, y_1 - y_3))
 
-    angle_right = 90 + angle_x1_x2
-    angle_left = 90 + anggle_x1_x3
+    if angle_x1_x2 < -90:
+        print('Angle < 0')
+        angle_right = 180 + angle_x1_x2
+        angle_left = 180 - angle_x1_x3
+    else:
+        angle_right = 90 + angle_x1_x2
+        angle_left = 90 - angle_x1_x3
 
     total_angle = angle_left + angle_right
+    print(f'angle_left = {angle_left} + angle_right = {angle_right}')
 
     person_length = 800
 
@@ -163,8 +172,9 @@ def detect(opt):
                 if len(outputs) > 0:
                     for j, (output, conf) in enumerate(zip(outputs, confs)):
 
-                        dist = dist_calculator(startX=output[0], startY=output[1], endX=output[2], endY=output[3], img_w=480, img_h=640)
+                        dist = dist_calculator(startX=output[0], startY=output[1], endX=output[2], endY=output[3], img_w=640, img_h=480)
                         print(f'dist = {dist}, left = {output[0]}, right = {output[2]}, top = {output[3]}, bottom = {output[1]}')
+                        print(f'output =  {output}')
                         bboxes = output[0:4]
                         id = output[4]
                         cls = output[5]
